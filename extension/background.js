@@ -1,79 +1,71 @@
-// FrenchIPMasker - Background Service Worker
-// Scrapes French proxies, tests them, applies via Chrome proxy API
+// FrenchIPMasker v5.0 - Background Service Worker
+// Pool proxy FR (scraping) + Cloudflare Worker (fallback)
+// Uses chrome.proxy API + WebRTC blocking
 
 const PROXY_SOURCES = [
   "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=2000&country=FR&ssl=all&anonymity=all",
   "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt",
   "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt",
-  "https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies.txt"
+  "https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies.txt",
+  "https://www.proxy-list.download/api/v1/get?type=http",
 ];
 
 let pool = [];
-let currentProxy = null;
+let current = null;
 let active = false;
 let running = false;
+let cfWorker = "";
 
-// ─── Proxy Application ───────────────────────────────
-function applyProxy(proxyStr) {
-  if (!proxyStr) {
-    chrome.proxy.settings.clear({ scope: 'regular' });
-    currentProxy = null;
-    return;
+// ─── Storage helpers ─────────────────────────────────
+async function get(k) { return (await chrome.storage.local.get(k))[k]; }
+async function set(obj) { return chrome.storage.local.set(obj); }
+
+// ─── Cloudflare Worker ───────────────────────────────
+async function checkWorkerIP(workerUrl) {
+  try {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 5000);
+    const resp = await fetch(`${workerUrl}/ip`, { signal: ctrl.signal });
+    return await resp.json();
+  } catch (e) {
+    return null;
   }
-  const [host, port] = proxyStr.split(':');
-  chrome.proxy.settings.set({
-    value: {
-      mode: "fixed_servers",
-      rules: {
-        singleProxy: { scheme: "http", host: host, port: parseInt(port) }
-      }
-    },
-    scope: 'regular'
-  });
-  currentProxy = proxyStr;
 }
 
-function removeProxy() {
-  chrome.proxy.settings.clear({ scope: 'regular' });
-  currentProxy = null;
-}
-
-// ─── Proxy Testing ────────────────────────────────────
-async function testProxy(proxy) {
+// ─── Proxy testing ───────────────────────────────────
+async function testOne(proxy) {
   try {
     const ctrl = new AbortController();
     setTimeout(() => ctrl.abort(), 3000);
     const resp = await fetch("http://ip-api.com/json/?fields=countryCode,ip,query", {
-      signal: ctrl.signal,
-      headers: { "User-Agent": "FrenchIPMasker/1.0" }
+      signal: ctrl.signal
     });
     const data = await resp.json();
     if (data.countryCode === "FR") {
-      return { proxy, ip: data.ip || data.query, latency: Math.round(resp.headers.get("x-response-time") || 0) };
+      return { proxy, ip: data.ip || data.query };
     }
   } catch (e) {}
   return null;
 }
 
-async function testBatch(proxies, workers = 8) {
+async function testBatch(list, workers = 12) {
   const results = [];
-  const queue = [...proxies];
-  const running = new Set();
+  const queue = [...list];
+  const seen = new Set(pool.map(p => p.proxy));
+  const todo = queue.filter(p => !seen.has(p));
 
   async function worker() {
-    while (queue.length > 0) {
-      const p = queue.shift();
+    while (todo.length > 0) {
+      const p = todo.shift();
       if (!p) break;
-      running.add(p);
-      const r = await testProxy(p);
-      running.delete(p);
+      const r = await testOne(p);
       if (r) {
         results.push(r);
-        chrome.storage.local.set({ pool: results });
+        await set({ pool: [...pool, ...results].slice(0, 50) });
       }
-      const progress = proxies.length - queue.length;
+      const progress = list.length - todo.length;
       if (progress % 5 === 0) {
-        chrome.storage.local.set({ progress: { done: progress, total: proxies.length, found: results.length }});
+        await set({ progress: { done: progress, total: list.length, found: results.length }});
       }
     }
   }
@@ -83,7 +75,7 @@ async function testBatch(proxies, workers = 8) {
 }
 
 // ─── Scraping ─────────────────────────────────────────
-async function scrapeProxies() {
+async function scrape() {
   const all = new Set();
   for (const url of PROXY_SOURCES) {
     try {
@@ -102,121 +94,213 @@ async function scrapeProxies() {
   return [...all];
 }
 
-// ─── Main Loop ────────────────────────────────────────
-async function startProxyPool() {
+// ─── Apply proxy ──────────────────────────────────────
+function applyProxy(proxyStr, cfUrl = null) {
+  if (cfUrl && (!proxyStr || pool.length === 0)) {
+    // Cloudflare Worker fallback - PAC script
+    const config = {
+      mode: "pac_script",
+      pacScript: {
+        data: `function FindProxyForURL(url, host) { return "PROXY ${cfUrl.replace(/https?:\/\//,'')}:80"; }`
+      }
+    };
+    chrome.proxy.settings.set({ value: config, scope: 'regular' });
+    current = { proxy: cfUrl, ip: "CF Paris", cf: true };
+  } else if (proxyStr) {
+    const [host, port] = proxyStr.split(':');
+    chrome.proxy.settings.set({
+      value: {
+        mode: "fixed_servers",
+        rules: { singleProxy: { scheme: "http", host, port: parseInt(port) } }
+      },
+      scope: 'regular'
+    });
+    current = { proxy: proxyStr, ip: proxyStr, cf: false };
+  }
+}
+
+function removeProxy() {
+  chrome.proxy.settings.clear({ scope: 'regular' });
+  current = null;
+}
+
+// ─── Main flow ────────────────────────────────────────
+async function start() {
   if (running) return;
   running = true;
+  cfWorker = await get('cfWorker') || "";
 
-  // Notify UI
-  chrome.storage.local.set({ status: "starting", progress: { done: 0, total: 0, found: 0 } });
+  await set({ status: "starting", progress: { done: 0, total: 0, found: 0 } });
 
-  // Phase 1: Try cached proxies first
-  const cached = (await chrome.storage.local.get('allProxies')).allProxies || [];
+  // Phase 1: Check CF Worker first
+  if (cfWorker) {
+    const info = await checkWorkerIP(cfWorker);
+    if (info) {
+      await set({ cfInfo: info });
+    }
+  }
+
+  // Phase 2: Try cached proxies
+  const cached = await get('allProxies') || [];
   if (cached.length > 0) {
-    chrome.storage.local.set({ status: "testing_cached" });
-    pool = await testBatch(cached.slice(0, 30), 12);
+    await set({ status: "testing_cached" });
+    const newPool = await testBatch(cached.slice(0, 30), 12);
+    if (newPool.length > 0) {
+      pool = newPool;
+      applyProxy(newPool[0].proxy);
+      active = true;
+      await set({ status: "active", pool, current: newPool[0], active: true });
+      running = false;
+      scheduleRefresh();
+      return;
+    }
   }
 
-  // Phase 2: Scrape web
-  if (pool.length < 3) {
-    chrome.storage.local.set({ status: "scraping", progress: { done: 0, total: 0, found: 0 } });
-    const scraped = await scrapeProxies();
-    await chrome.storage.local.set({ allProxies: scraped });
-    pool = await testBatch(scraped.slice(0, 40), 10);
-  }
+  // Phase 3: Scrape + test
+  await set({ status: "scraping" });
+  const scraped = await scrape();
+  await set({ allProxies: scraped, progress: { done: 0, total: scraped.length, found: 0 } });
+  pool = await testBatch(scraped.slice(0, 40), 12);
 
   if (pool.length > 0) {
-    const best = pool.sort((a, b) => a.latency - b.latency)[0];
-    applyProxy(best.proxy);
+    applyProxy(pool[0].proxy);
     active = true;
-    chrome.storage.local.set({
-      status: "active",
-      pool: pool,
-      current: best,
-      active: true
-    });
-    // Continue scraping in background
+    await set({ status: "active", pool, current: pool[0], active: true });
     scheduleRefresh();
+  } else if (cfWorker) {
+    // Fallback: use CF Worker as proxy
+    applyProxy(null, cfWorker);
+    active = true;
+    await set({ status: "active", pool: [], current: { proxy: cfWorker, ip: "CF Paris", cf: true }, active: true, cfFallback: true });
   } else {
-    chrome.storage.local.set({ status: "noproxy", active: false });
+    await set({ status: "noproxy", active: false });
   }
   running = false;
 }
 
-function stopProxyPool() {
+function stop() {
   removeProxy();
   active = false;
-  chrome.storage.local.set({ status: "idle", active: false });
+  set({ status: "idle", active: false });
 }
 
-function rotateProxy() {
-  if (pool.length < 2) return;
-  const current = currentProxy;
-  const available = pool.filter(p => p.proxy !== current);
-  if (available.length === 0) return;
-  const best = available.sort((a, b) => a.latency - b.latency)[0];
-  applyProxy(best.proxy);
-  chrome.storage.local.set({ current: best, pool: pool });
-}
-
-async function scheduleRefresh() {
-  // Refresh pool every 2 minutes
-  chrome.alarms.create('refresh', { periodInMinutes: 2 });
+function rotate() {
+  if (pool.length > 1) {
+    const cur = current?.proxy;
+    const avail = pool.filter(p => p.proxy !== cur);
+    if (avail.length > 0) {
+      const best = avail.sort(() => Math.random() - 0.5)[0];
+      applyProxy(best.proxy);
+      set({ current: best, pool });
+      return best;
+    }
+  }
+  // If pool exhausted, try CF
+  if (cfWorker && (!current || !current.cf)) {
+    applyProxy(null, cfWorker);
+    set({ current: { proxy: cfWorker, ip: "CF Paris", cf: true } });
+    return { proxy: cfWorker, ip: "CF Paris", cf: true };
+  }
+  return current;
 }
 
 // ─── Background refresh ───────────────────────────────
-async function backgroundRefresh() {
+async function bgRefresh() {
   if (!active || running) return;
   running = true;
   try {
-    const scraped = await scrapeProxies();
-    await chrome.storage.local.set({ allProxies: scraped });
-    const newPool = await testBatch(scraped.slice(0, 20), 8);
-    if (newPool.length > 0) {
-      // Merge with existing pool
-      const existingProxies = new Set(pool.map(p => p.proxy));
-      for (const p of newPool) {
-        if (!existingProxies.has(p.proxy)) pool.push(p);
+    const scraped = await scrape();
+    await set({ allProxies: scraped });
+    const fresh = await testBatch(scraped.slice(0, 20), 8);
+    if (fresh.length > 0) {
+      const existing = new Set(pool.map(p => p.proxy));
+      for (const p of fresh) {
+        if (!existing.has(p.proxy)) pool.push(p);
       }
-      // Keep max 50
       pool = pool.slice(0, 50);
+      await set({ pool });
     }
   } catch (e) {}
   running = false;
 }
 
-// ─── Message handlers ─────────────────────────────────
+function scheduleRefresh() {
+  chrome.alarms.create('refresh', { periodInMinutes: 3 });
+}
+
+// ─── WebRTC blocking ──────────────────────────────────
+async function blockWebRTC() {
+  // Use declarativeNetRequest to block STUN/TURN
+  const rules = [{
+    id: 1,
+    priority: 1,
+    action: { type: "block" },
+    condition: {
+      urlFilter: "*stun*",
+      resourceTypes: ["xmlhttprequest", "websocket"]
+    }
+  }, {
+    id: 2,
+    priority: 1,
+    action: { type: "block" },
+    condition: {
+      urlFilter: "*turn*",
+      resourceTypes: ["xmlhttprequest", "websocket"]
+    }
+  }];
+  try {
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: rules.map(r => r.id),
+      addRules: rules
+    });
+  } catch (e) {}
+}
+
+// ─── Messages ─────────────────────────────────────────
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === "start") {
-    startProxyPool().then(() => sendResponse({ ok: true }));
+    start().then(() => sendResponse({ ok: true }));
     return true;
   }
   if (msg.action === "stop") {
-    stopProxyPool();
+    stop();
     sendResponse({ ok: true });
-    return false;
   }
   if (msg.action === "rotate") {
-    rotateProxy();
-    const s = pool.length;
-    const ip = currentProxy ? currentProxy : null;
-    sendResponse({ ok: true, pool: s, ip: ip });
-    return false;
+    const r = rotate();
+    sendResponse({ ok: true, ip: r?.ip, pool: pool.length });
   }
   if (msg.action === "status") {
-    chrome.storage.local.get(['status','active','current','pool','progress'], (data) => {
-      sendResponse(data);
+    chrome.storage.local.get(['status','active','current','pool','progress','cfInfo','cfFallback','cfWorker'], (d) => {
+      sendResponse(d);
     });
     return true;
+  }
+  if (msg.action === "setWorker") {
+    cfWorker = msg.url || "";
+    set({ cfWorker });
+    sendResponse({ ok: true });
   }
 });
 
 // ─── Alarms ───────────────────────────────────────────
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'refresh') backgroundRefresh();
+chrome.alarms.onAlarm.addListener((a) => {
+  if (a.name === 'refresh') bgRefresh();
 });
 
 // ─── Init ─────────────────────────────────────────────
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.set({ status: "idle", active: false, pool: [], current: null });
+chrome.runtime.onInstalled.addListener(async () => {
+  await set({ status: "idle", active: false, pool: [], current: null, cfWorker: "" });
+  await blockWebRTC();
 });
+
+// Restore state on startup
+(async () => {
+  const wasActive = await get('active');
+  if (wasActive) {
+    const saved = await get('cfWorker');
+    if (saved) cfWorker = saved;
+    await start();
+  }
+  await blockWebRTC();
+})();
