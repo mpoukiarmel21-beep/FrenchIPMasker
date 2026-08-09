@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 320px; min-height: 400px;
+    background: #0d1117; color: #c9d1d9;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    padding: 18px;
+  }
+  h1 { font-size: 18px; font-weight: 700; color: #58a6ff; margin-bottom: 2px; }
+  .sub { font-size: 10px; color: #8b949e; margin-bottom: 16px; }
+
+  .card {
+    background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+    padding: 16px; margin-bottom: 10px; text-align: center;
+  }
+  .status { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .status.off { color: #f85149; }
+  .status.on { color: #3fb950; }
+  .status.err { color: #f85149; }
+  .ip { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .ip.active { color: #58a6ff; }
+  .loc { font-size: 11px; color: #8b949e; }
+  .pool { font-size: 10px; color: #58a6ff; margin-top: 6px; }
+  .progress { font-size: 11px; color: #8b949e; margin-top: 4px; }
+
+  .btn {
+    width: 100%; height: 42px; border-radius: 10px; border: none;
+    font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 6px;
+    transition: all 0.15s;
+  }
+  .btn-start { background: #238636; color: white; }
+  .btn-start:hover { background: #2ea043; }
+  .btn-stop { background: #da3633; color: white; }
+  .btn-stop:hover { background: #f85149; }
+  .btn-rot {
+    background: #21262d; color: #c9d1d9; border: 1px solid #30363d;
+    height: 36px; font-size: 12px;
+  }
+  .btn-rot:hover { background: #30363d; }
+  .btn-rot:disabled { opacity: 0.4; cursor: default; }
+
+  .info {
+    font-size: 10px; color: #484f58; text-align: center;
+    margin-top: 10px; line-height: 1.4;
+  }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<h1>FrenchIPMasker</h1>
+<div class="sub">IP française en 1 clic</div>
+
+<div class="card">
+  <div class="status off" id="status">○ Inactif</div>
+  <div class="ip" id="ip">—</div>
+  <div class="loc" id="loc">Extension prête</div>
+  <div class="pool" id="pool"></div>
+  <div class="progress" id="prog"></div>
+</div>
+
+<button class="btn btn-start" id="toggleBtn">Activer le masquage</button>
+<button class="btn btn-rot hidden" id="rotBtn" disabled>🔄 Changer d'IP française</button>
+
+<div class="info" id="info">
+  Proxy HTTP automatique<br>
+  IPs françaises détectées en temps réel
+</div>
+
+<script src="popup.js"></script>
+</body>
+</html>

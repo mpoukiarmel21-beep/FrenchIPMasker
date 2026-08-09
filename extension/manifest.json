@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "FrenchIPMasker",
+  "version": "1.0.0",
+  "description": "Masque ton IP avec une adresse française — un clic, c'est tout.",
+  "permissions": ["proxy", "storage", "alarms", "webRequest", "webRequestAuthProvider"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "FrenchIPMasker"
+  },
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  }
+}
