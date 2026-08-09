@@ -4,37 +4,19 @@
 <meta charset="utf-8">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    width: 260px; min-height: 260px;
-    background: #0d1117; color: #c9d1d9;
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    padding: 20px; text-align: center;
-  }
+  body { width: 270px; min-height: 270px; background: #0d1117; color: #c9d1d9; font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 20px; text-align: center; }
   h1 { font-size: 17px; font-weight: 700; color: #58a6ff; margin-bottom: 18px; }
-
-  .ip-box {
-    background: #161b22; border: 1px solid #30363d; border-radius: 12px;
-    padding: 20px 16px; margin-bottom: 16px;
-  }
-  .dot { font-size: 24px; margin-bottom: 6px; }
-  .dot.on { color: #3fb950; } .dot.off { color: #f85149; }
-  .ip-text { font-size: 22px; font-weight: 700; color: #58a6ff; word-break: break-all; }
+  .ip-box { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px 16px; margin-bottom: 14px; }
+  .dot { font-size: 24px; margin-bottom: 6px; } .dot.on { color: #3fb950; } .dot.off { color: #f85149; }
+  .ip-text { font-size: 20px; font-weight: 700; color: #58a6ff; word-break: break-all; }
   .label { font-size: 10px; color: #8b949e; margin-top: 2px; }
-
-  .btn {
-    width: 100%; height: 46px; border-radius: 10px; border: none;
-    font-size: 14px; font-weight: 600; cursor: pointer;
-    margin-bottom: 8px; transition: opacity 0.2s;
-  }
+  .btn { width: 100%; height: 46px; border-radius: 10px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; margin-bottom: 8px; }
   .btn:disabled { opacity: 0.5; cursor: default; }
-  .btn-on { background: #238636; color: #fff; }
-  .btn-on:hover:not(:disabled) { background: #2ea043; }
-  .btn-off { background: #da3633; color: #fff; }
-  .btn-off:hover:not(:disabled) { background: #f85149; }
+  .btn-on { background: #238636; color: #fff; } .btn-on:hover:not(:disabled) { background: #2ea043; }
+  .btn-off { background: #da3633; color: #fff; } .btn-off:hover:not(:disabled) { background: #f85149; }
   .btn-rot { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; height: 38px; font-size: 12px; }
   .btn-rot:hover:not(:disabled) { background: #30363d; }
-  .hidden { display: none }
-
+  .hidden { display: none !important; }
   .msg { font-size: 10px; color: #484f58; margin-top: 6px; }
 </style>
 </head>
@@ -48,9 +30,9 @@
 </div>
 
 <button class="btn btn-on" id="toggle">Activer le masquage</button>
-<button class="btn btn-rot hidden" id="rotate" disabled>🔄 Changer d'IP</button>
+<button class="btn btn-rot hidden" id="rotate" disabled>🔄 Nouvelle IP (live scraping)</button>
 
-<div class="msg" id="msg">80+ proxys · Rotation auto · 0 setup</div>
+<div class="msg" id="msg">Scraping live · 10 sources · IP fraîche à chaque fois</div>
 
 <script src="popup.js"></script>
 </body>
