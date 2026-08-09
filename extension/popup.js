@@ -1,107 +1,61 @@
-// FrenchIPMasker v6 — Popup (no setup, 1-click)
+// Ultra-minimal popup — ON/OFF + IP display
 const $ = id => document.getElementById(id);
 const bg = chrome.runtime;
 let active = false;
 
-const sEl = $("status"), iEl = $("ip"), lEl = $("loc");
-const pEl = $("pool"), rEl = $("prog");
-const tBtn = $("toggleBtn"), rotBtn = $("rotBtn");
-const info = $("info");
+const dot = $("dot"), ip = $("ip"), label = $("label");
+const toggle = $("toggle"), rotateBtn = $("rotate"), msg = $("msg");
 
-// ─── Toggle ───────────────────────────────────────────
-tBtn.addEventListener("click", async () => {
+function updateUI(d) {
+  active = !!d.active;
   if (active) {
-    tBtn.disabled = true; tBtn.textContent = "Arrêt...";
-    await new Promise(r => bg.sendMessage({ action: "stop" }, r));
-    setUI("idle");
+    dot.textContent = "●"; dot.className = "dot on";
+    ip.textContent = d.ip || "Protégé";
+    label.textContent = "IP masquée";
+    toggle.textContent = "Désactiver le masquage";
+    toggle.className = "btn btn-off"; toggle.disabled = false;
+    rotateBtn.classList.remove("hidden"); rotateBtn.disabled = false;
+    msg.classList.add("hidden");
   } else {
-    tBtn.disabled = true; tBtn.textContent = "Recherche de proxys FR...";
-    rEl.textContent = "Test de 80+ proxys pré-chargés...";
-    await new Promise(r => bg.sendMessage({ action: "start" }, r));
-    poll();
-  }
-});
-
-// ─── Rotate ──────────────────────────────────────────
-rotBtn.addEventListener("click", async () => {
-  rotBtn.disabled = true; rotBtn.textContent = "...";
-  const r = await new Promise(r2 => bg.sendMessage({ action: "rotate" }, r2));
-  if (r && r.ip) {
-    iEl.textContent = r.ip;
-    pEl.textContent = `Pool : ${r.total} proxys FR | rotation ∞`;
-    rotBtn.textContent = "🔄 Changer d'IP (instantané)";
-  }
-  rotBtn.disabled = false;
-});
-
-// ─── Poll status ──────────────────────────────────────
-async function poll() {
-  const d = await new Promise(r => bg.sendMessage({ action: "status" }, r));
-  if (!d) return;
-  if (d.active) { setUI("active", d); return; }
-  if (d.status === "starting" || d.status === "testing" || d.status === "scraping") {
-    setUI("loading", d);
-    setTimeout(poll, 1200);
-    return;
-  }
-  if (d.status === "noproxy") { setUI("noproxy"); return; }
-  setUI("idle");
-}
-
-function setUI(state, data = {}) {
-  switch (state) {
-    case "idle":
-      active = false;
-      sEl.textContent = "○ Inactif"; sEl.className = "status s-off";
-      iEl.textContent = "—"; iEl.className = "ip";
-      lEl.textContent = "Extension prête";
-      pEl.textContent = ""; rEl.textContent = "";
-      tBtn.textContent = "Activer le masquage";
-      tBtn.className = "btn btn-start"; tBtn.disabled = false;
-      rotBtn.classList.add("hidden"); info.classList.remove("hidden");
-      break;
-
-    case "active":
-      active = true;
-      sEl.textContent = "● Actif"; sEl.className = "status s-on";
-      const c = data.current || {};
-      iEl.textContent = c.ip || "..."; iEl.className = "ip ip-on";
-      lEl.textContent = "France 🇫🇷";
-      const n = (data.pool || []).length;
-      pEl.textContent = `Pool : ${n} proxys FR | rotation ∞`;
-      rEl.textContent = "";
-      tBtn.textContent = "Désactiver";
-      tBtn.className = "btn btn-stop"; tBtn.disabled = false;
-      rotBtn.classList.remove("hidden"); rotBtn.disabled = false;
-      info.classList.add("hidden");
-      break;
-
-    case "loading":
-      const p = data.progress || {};
-      sEl.textContent = "⟳ Test..."; sEl.className = "status s-off";
-      iEl.textContent = "..."; iEl.className = "ip";
-      if (p.total) {
-        rEl.textContent = `${p.done}/${p.total} testés · ${p.found||0} FR trouvés`;
-      } else {
-        rEl.textContent = "Scraping des proxys FR...";
-      }
-      tBtn.textContent = "Recherche..."; tBtn.disabled = true;
-      rotBtn.classList.add("hidden");
-      break;
-
-    case "noproxy":
-      active = false;
-      sEl.textContent = "✕ Échec"; sEl.className = "status s-err";
-      iEl.textContent = "Aucun proxy FR"; iEl.className = "ip";
-      lEl.textContent = "Vérifiez votre connexion";
-      pEl.textContent = ""; rEl.textContent = "";
-      tBtn.textContent = "Réessayer";
-      tBtn.className = "btn btn-start"; tBtn.disabled = false;
-      rotBtn.classList.add("hidden");
-      break;
+    dot.textContent = "●"; dot.className = "dot off";
+    ip.textContent = "—";
+    label.textContent = "Inactif";
+    toggle.textContent = "Activer le masquage";
+    toggle.className = "btn btn-on"; toggle.disabled = false;
+    rotateBtn.classList.add("hidden");
+    msg.classList.remove("hidden");
   }
 }
 
-// ─── Init ─────────────────────────────────────────────
-poll();
-setInterval(() => { if (active) poll(); }, 6000);
+toggle.addEventListener("click", async () => {
+  toggle.disabled = true;
+  if (active) {
+    toggle.textContent = "Arrêt...";
+    await new Promise(r => bg.sendMessage("stop", r));
+    updateUI({ active: false });
+  } else {
+    toggle.textContent = "Recherche...";
+    const r = await new Promise(r2 => bg.sendMessage("start", r2));
+    updateUI({ active: r.ok, ip: r.ip });
+    if (!r.ok) {
+      ip.textContent = "Échec";
+      label.textContent = "Réessayez";
+    }
+  }
+});
+
+rotateBtn.addEventListener("click", async () => {
+  rotateBtn.disabled = true; rotateBtn.textContent = "...";
+  await new Promise(r => bg.sendMessage("rotate", r));
+  const s = await new Promise(r => bg.sendMessage("status", r));
+  updateUI(s);
+  rotateBtn.textContent = "🔄 Changer d'IP";
+});
+
+// Init
+chrome.storage.local.get(["active","ip"], d => updateUI(d));
+
+// Refresh every 10s
+setInterval(() => {
+  chrome.storage.local.get(["active","ip"], d => { if (active) ip.textContent = d.ip || "Protégé"; });
+}, 10000);

@@ -5,64 +5,52 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    width: 310px; min-height: 400px;
+    width: 260px; min-height: 260px;
     background: #0d1117; color: #c9d1d9;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    padding: 18px;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    padding: 20px; text-align: center;
   }
-  h1 { font-size: 18px; font-weight: 700; color: #58a6ff; margin-bottom: 2px; }
-  .sub { font-size: 10px; color: #8b949e; margin-bottom: 14px; }
-  .card {
+  h1 { font-size: 17px; font-weight: 700; color: #58a6ff; margin-bottom: 18px; }
+
+  .ip-box {
     background: #161b22; border: 1px solid #30363d; border-radius: 12px;
-    padding: 16px; margin-bottom: 8px; text-align: center;
+    padding: 20px 16px; margin-bottom: 16px;
   }
-  .status { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
-  .s-off { color: #f85149; } .s-on { color: #3fb950; } .s-err { color: #f85149; }
-  .ip { font-size: 20px; font-weight: 700; margin-bottom: 4px; word-break: break-all; }
-  .ip-on { color: #58a6ff; }
-  .loc { font-size: 11px; color: #8b949e; }
-  .pool { font-size: 10px; color: #58a6ff; margin-top: 4px; }
-  .prog { font-size: 11px; color: #8b949e; margin-top: 4px; }
+  .dot { font-size: 24px; margin-bottom: 6px; }
+  .dot.on { color: #3fb950; } .dot.off { color: #f85149; }
+  .ip-text { font-size: 22px; font-weight: 700; color: #58a6ff; word-break: break-all; }
+  .label { font-size: 10px; color: #8b949e; margin-top: 2px; }
 
   .btn {
-    width: 100%; height: 42px; border-radius: 10px; border: none;
-    font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 6px;
-    transition: all 0.15s;
+    width: 100%; height: 46px; border-radius: 10px; border: none;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    margin-bottom: 8px; transition: opacity 0.2s;
   }
-  .btn-start { background: #238636; color: #fff; } .btn-start:hover { background: #2ea043; }
-  .btn-stop { background: #da3633; color: #fff; } .btn-stop:hover { background: #f85149; }
-  .btn-rot {
-    width: 100%; height: 36px; border-radius: 10px; border: 1px solid #30363d;
-    background: #21262d; color: #c9d1d9; font-size: 12px; font-weight: 600;
-    cursor: pointer; margin-bottom: 8px;
-  }
-  .btn-rot:hover { background: #30363d; }
-  .btn-rot:disabled, .btn:disabled { opacity: 0.4; cursor: default; pointer-events: none; }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+  .btn-on { background: #238636; color: #fff; }
+  .btn-on:hover:not(:disabled) { background: #2ea043; }
+  .btn-off { background: #da3633; color: #fff; }
+  .btn-off:hover:not(:disabled) { background: #f85149; }
+  .btn-rot { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; height: 38px; font-size: 12px; }
+  .btn-rot:hover:not(:disabled) { background: #30363d; }
+  .hidden { display: none }
 
-  .info { font-size: 10px; color: #484f58; text-align: center; margin-top: 6px; line-height: 1.4; }
-  .hidden { display: none !important; }
+  .msg { font-size: 10px; color: #484f58; margin-top: 6px; }
 </style>
 </head>
 <body>
+<h1>IP Masker</h1>
 
-<h1>FrenchIPMasker</h1>
-<div class="sub">IP française · 100% autonome · 80+ proxys pré-chargés</div>
-
-<div class="card">
-  <div class="status s-off" id="status">○ Inactif</div>
-  <div class="ip" id="ip">—</div>
-  <div class="loc" id="loc">Extension prête</div>
-  <div class="pool" id="pool"></div>
-  <div class="prog" id="prog"></div>
+<div class="ip-box">
+  <div class="dot off" id="dot">●</div>
+  <div class="ip-text" id="ip">—</div>
+  <div class="label" id="label">Inactif</div>
 </div>
 
-<button class="btn btn-start" id="toggleBtn">Activer le masquage</button>
-<button class="btn btn-rot hidden" id="rotBtn" disabled>🔄 Changer d'IP (instantané)</button>
+<button class="btn btn-on" id="toggle">Activer le masquage</button>
+<button class="btn btn-rot hidden" id="rotate" disabled>🔄 Changer d'IP</button>
 
-<div class="info" id="info">
-  80+ proxys FR pré-chargés<br>
-  Rotation ∞ · WebRTC bloqué · DNS protégé
-</div>
+<div class="msg" id="msg">80+ proxys · Rotation auto · 0 setup</div>
 
 <script src="popup.js"></script>
 </body>
