@@ -5,28 +5,23 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    width: 320px; min-height: 440px;
+    width: 310px; min-height: 400px;
     background: #0d1117; color: #c9d1d9;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     padding: 18px;
   }
   h1 { font-size: 18px; font-weight: 700; color: #58a6ff; margin-bottom: 2px; }
   .sub { font-size: 10px; color: #8b949e; margin-bottom: 14px; }
-
   .card {
     background: #161b22; border: 1px solid #30363d; border-radius: 12px;
     padding: 16px; margin-bottom: 8px; text-align: center;
   }
   .status { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
   .s-off { color: #f85149; } .s-on { color: #3fb950; } .s-err { color: #f85149; }
-  .ip { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .ip { font-size: 20px; font-weight: 700; margin-bottom: 4px; word-break: break-all; }
   .ip-on { color: #58a6ff; }
   .loc { font-size: 11px; color: #8b949e; }
-  .pool { font-size: 10px; color: #58a6ff; margin-top: 6px; }
-  .cf-badge {
-    display: inline-block; background: #f6821f20; color: #f6821f;
-    font-size: 9px; padding: 2px 6px; border-radius: 4px; margin-top: 4px;
-  }
+  .pool { font-size: 10px; color: #58a6ff; margin-top: 4px; }
   .prog { font-size: 11px; color: #8b949e; margin-top: 4px; }
 
   .btn {
@@ -34,57 +29,39 @@
     font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 6px;
     transition: all 0.15s;
   }
-  .btn-start { background: #238636; color: white; } .btn-start:hover { background: #2ea043; }
-  .btn-stop { background: #da3633; color: white; } .btn-stop:hover { background: #f85149; }
+  .btn-start { background: #238636; color: #fff; } .btn-start:hover { background: #2ea043; }
+  .btn-stop { background: #da3633; color: #fff; } .btn-stop:hover { background: #f85149; }
   .btn-rot {
-    background: #21262d; color: #c9d1d9; border: 1px solid #30363d;
-    height: 36px; font-size: 12px;
+    width: 100%; height: 36px; border-radius: 10px; border: 1px solid #30363d;
+    background: #21262d; color: #c9d1d9; font-size: 12px; font-weight: 600;
+    cursor: pointer; margin-bottom: 8px;
   }
   .btn-rot:hover { background: #30363d; }
-  .btn-rot:disabled, .btn:disabled { opacity: 0.4; cursor: default; }
+  .btn-rot:disabled, .btn:disabled { opacity: 0.4; cursor: default; pointer-events: none; }
 
-  .cfg {
-    background: #161b22; border: 1px solid #30363d; border-radius: 10px;
-    padding: 12px; margin-bottom: 8px;
-  }
-  .cfg label { font-size: 11px; font-weight: 600; color: #8b949e; display: block; margin-bottom: 4px; }
-  .cfg input {
-    width: 100%; height: 34px; background: #0d1117; border: 1px solid #30363d;
-    border-radius: 6px; color: #c9d1d9; font-size: 11px; padding: 0 8px;
-  }
-  .cfg input:focus { outline: none; border-color: #58a6ff; }
-  .cfg .hint { font-size: 9px; color: #484f58; margin-top: 3px; }
-
-  .info { font-size: 10px; color: #484f58; text-align: center; margin-top: 8px; }
+  .info { font-size: 10px; color: #484f58; text-align: center; margin-top: 6px; line-height: 1.4; }
   .hidden { display: none !important; }
 </style>
 </head>
 <body>
 
 <h1>FrenchIPMasker</h1>
-<div class="sub">IP française · Proxy + Cloudflare</div>
+<div class="sub">IP française · 100% autonome · 80+ proxys pré-chargés</div>
 
 <div class="card">
   <div class="status s-off" id="status">○ Inactif</div>
   <div class="ip" id="ip">—</div>
   <div class="loc" id="loc">Extension prête</div>
   <div class="pool" id="pool"></div>
-  <div class="cf-badge hidden" id="cfBadge">via Cloudflare</div>
   <div class="prog" id="prog"></div>
 </div>
 
 <button class="btn btn-start" id="toggleBtn">Activer le masquage</button>
-<button class="btn btn-rot hidden" id="rotBtn" disabled>🔄 Changer d'IP</button>
-
-<div class="cfg hidden" id="cfgPanel">
-  <label>URL Cloudflare Worker</label>
-  <input type="text" id="workerUrl" placeholder="https://french-ip.xxx.workers.dev" spellcheck="false">
-  <div class="hint">Lance deploy.bat pour créer ton worker gratuit</div>
-</div>
+<button class="btn btn-rot hidden" id="rotBtn" disabled>🔄 Changer d'IP (instantané)</button>
 
 <div class="info" id="info">
-  Pool proxy FR automatique<br>
-  Fallback Cloudflare Paris
+  80+ proxys FR pré-chargés<br>
+  Rotation ∞ · WebRTC bloqué · DNS protégé
 </div>
 
 <script src="popup.js"></script>
