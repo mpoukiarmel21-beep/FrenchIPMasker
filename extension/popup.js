@@ -1,58 +1,92 @@
+/*
+ * IP Masker — Popup Controller
+ * Live scraping · Fresh IP every time · Zero config
+ */
 const $ = id => document.getElementById(id);
-const bg = chrome.runtime;
+
+const card = $("card"), dot = $("dot"), statusEl = $("status");
+const ipEl = $("ip"), locEl = $("loc");
+const toggle = $("toggle"), rotate = $("rotate");
+const footer = $("footer");
 let active = false;
 
-const dot = $("dot"), ip = $("ip"), label = $("label");
-const toggle = $("toggle"), rotateBtn = $("rotate"), msg = $("msg");
+function setActive(ip) {
+  active = true;
+  card.className = "card active";
+  dot.className = "status-dot on";
+  statusEl.textContent = "Protégé"; statusEl.className = "status-text on";
+  ipEl.textContent = ip || "Protégé"; ipEl.className = "ip-display on";
+  locEl.textContent = "IP masquée · France";
+  toggle.textContent = "Désactiver le masquage";
+  toggle.className = "btn btn-danger";
+  toggle.disabled = false;
+  rotate.classList.remove("hidden"); rotate.disabled = false;
+  footer.classList.add("hidden");
+}
 
-function ui(d) {
-  active = !!d.active;
-  if (active) {
-    dot.textContent = "●"; dot.className = "dot on";
-    ip.textContent = d.ip || "Protégé";
-    label.textContent = "IP masquée · Live";
-    toggle.textContent = "Désactiver";
-    toggle.className = "btn btn-off"; toggle.disabled = false;
-    rotateBtn.classList.remove("hidden"); rotateBtn.disabled = false;
-    msg.classList.add("hidden");
-  } else {
-    dot.textContent = "●"; dot.className = "dot off";
-    ip.textContent = "—"; label.textContent = "Inactif";
-    toggle.textContent = "Activer le masquage";
-    toggle.className = "btn btn-on"; toggle.disabled = false;
-    rotateBtn.classList.add("hidden");
-    msg.classList.remove("hidden");
-  }
+function setInactive() {
+  active = false;
+  card.className = "card inactive";
+  dot.className = "status-dot off";
+  statusEl.textContent = "Inactif"; statusEl.className = "status-text off";
+  ipEl.textContent = "—"; ipEl.className = "ip-display off";
+  locEl.textContent = "Prêt";
+  toggle.textContent = "Activer le masquage";
+  toggle.className = "btn btn-primary";
+  toggle.disabled = false;
+  rotate.classList.add("hidden");
+  footer.classList.remove("hidden");
+}
+
+function setLoading(msg) {
+  toggle.disabled = true;
+  toggle.innerHTML = `<span class="spinner"></span> ${msg}`;
 }
 
 toggle.addEventListener("click", async () => {
-  toggle.disabled = true;
   if (active) {
-    toggle.textContent = "Arrêt...";
-    await new Promise(r => bg.sendMessage("stop", r));
-    ui({ active: false });
+    setLoading("Arrêt...");
+    await new Promise(r => chrome.runtime.sendMessage("stop", r));
+    setInactive();
   } else {
-    toggle.textContent = "Scraping live...";
-    const r = await new Promise(r2 => bg.sendMessage("start", r2));
-    if (r.ok) {
-      ui({ active: true, ip: r.ip });
+    setLoading("Scraping en direct...");
+    const r = await new Promise(r2 => chrome.runtime.sendMessage("start", r2));
+    if (r && r.ok) {
+      setActive(r.ip);
     } else {
-      ip.textContent = "Aucun proxy";
-      label.textContent = "Réessayez";
-      ui({ active: false });
+      ipEl.textContent = "Échec";
+      ipEl.className = "ip-display off";
+      locEl.textContent = "Aucun proxy FR trouvé · Réessayez";
+      toggle.textContent = "Réessayer";
+      toggle.className = "btn btn-primary";
+      toggle.disabled = false;
     }
   }
 });
 
-rotateBtn.addEventListener("click", async () => {
-  rotateBtn.disabled = true; rotateBtn.textContent = "Scraping...";
-  const r = await new Promise(r2 => bg.sendMessage("rotate", r2));
-  if (r.ok) { ip.textContent = r.ip; } 
-  rotateBtn.textContent = "🔄 Nouvelle IP (live scraping)";
-  rotateBtn.disabled = false;
+rotate.addEventListener("click", async () => {
+  rotate.disabled = true;
+  rotate.innerHTML = `<span class="spinner"></span> Scraping...`;
+  const r = await new Promise(r2 => chrome.runtime.sendMessage("rotate", r2));
+  if (r && r.ok && r.ip) {
+    ipEl.textContent = r.ip;
+    locEl.textContent = "Nouvelle IP · France";
+  }
+  rotate.innerHTML = "🔄 Nouvelle IP française";
+  rotate.disabled = false;
 });
 
-chrome.storage.local.get(["active","ip"], d => ui(d));
+// Init
+chrome.storage.local.get(["active", "ip"], d => {
+  if (d.active) setActive(d.ip);
+  else setInactive();
+});
+
+// Live IP refresh every 8s
 setInterval(() => {
-  chrome.storage.local.get(["active","ip"], d => { if (active) ip.textContent = d.ip || "Protégé"; });
+  if (active) {
+    chrome.storage.local.get(["ip"], d => {
+      if (d.ip && d.ip !== ipEl.textContent) ipEl.textContent = d.ip;
+    });
+  }
 }, 8000);
