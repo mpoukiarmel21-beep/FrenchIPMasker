@@ -7,10 +7,11 @@ import requests
 import sys
 
 class ForwardProxyServer:
-    def __init__(self, host="127.0.0.1", port=8080, proxy_manager=None):
+    def __init__(self, host="127.0.0.1", port=8080, proxy_manager=None, transparent=False):
         self.host = host
         self.port = port
         self.proxy_manager = proxy_manager
+        self.transparent = transparent  # Fallback to direct if no FR proxy
         self.running = False
         self.server_socket = None
         self._thread = None
@@ -86,34 +87,30 @@ class ForwardProxyServer:
                 pass
 
     def _handle_connect(self, client_sock, target, fr_proxy):
-        """Handle HTTPS CONNECT tunnel via French proxy"""
+        """Handle HTTPS CONNECT tunnel — transparent fallback if no FR proxy"""
         try:
             host, port_str = target.split(":")
             port = int(port_str)
 
             if fr_proxy:
-                # Connect through French proxy
+                # Route through French proxy
                 proxy_host, proxy_port = fr_proxy.split(":")
                 remote = socket.create_connection((proxy_host, int(proxy_port)), timeout=10)
-
-                # Send CONNECT request to French proxy
                 connect_req = f"CONNECT {target} HTTP/1.1\r\nHost: {target}\r\n\r\n"
                 remote.send(connect_req.encode())
-
-                # Read response from proxy
                 resp = remote.recv(4096)
                 if b"200" in resp:
                     client_sock.send(b"HTTP/1.1 200 Connection Established\r\n\r\n")
-
-                    # Bidirectional relay
                     self._relay(client_sock, remote)
-                else:
-                    client_sock.send(b"HTTP/1.1 502 Bad Gateway\r\n\r\n")
-            else:
-                # Direct connection (fallback)
+                    return
+
+            # Fallback: direct connection (transparent mode)
+            if self.transparent or not fr_proxy:
                 remote = socket.create_connection((host, port), timeout=10)
                 client_sock.send(b"HTTP/1.1 200 Connection Established\r\n\r\n")
                 self._relay(client_sock, remote)
+            else:
+                client_sock.send(b"HTTP/1.1 502 Bad Gateway\r\n\r\n")
 
         except Exception as e:
             try:
@@ -122,32 +119,34 @@ class ForwardProxyServer:
                 pass
 
     def _handle_http(self, client_sock, request, target, fr_proxy):
-        """Forward HTTP request via French proxy"""
+        """Forward HTTP request — transparent fallback if no FR proxy"""
         try:
-            # Modify request to use absolute URI if needed
             headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
             proxies = None
-
             if fr_proxy:
                 proxies = {"http": f"http://{fr_proxy}", "https": f"http://{fr_proxy}"}
 
-            # Extract method and URL
             first_line = request.split(b"\r\n")[0].decode()
             method = first_line.split()[0]
 
-            if method == "GET":
-                url = target if target.startswith("http") else f"http://{target}"
+            if target.startswith("http"):
+                resp = requests.request(method, target, headers=headers, proxies=proxies, timeout=15)
+                client_sock.send(resp.content)
+            elif method == "GET":
+                url = f"http://{target}"
                 resp = requests.get(url, headers=headers, proxies=proxies, timeout=15)
                 client_sock.send(resp.content)
             else:
-                # For other methods, do a simple forward
-                if target.startswith("http"):
-                    resp = requests.request(method, target, headers=headers, proxies=proxies, timeout=15)
-                    client_sock.send(resp.content)
-                else:
-                    client_sock.send(b"HTTP/1.1 405 Method Not Allowed\r\n\r\n")
+                client_sock.send(b"HTTP/1.1 405 Method Not Allowed\r\n\r\n")
 
         except Exception as e:
+            # If transparent mode, try direct
+            if self.transparent and fr_proxy:
+                try:
+                    self._handle_http(client_sock, request, target, None)
+                    return
+                except:
+                    pass
             try:
                 client_sock.send(b"HTTP/1.1 502 Bad Gateway\r\n\r\n")
             except:

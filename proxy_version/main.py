@@ -14,7 +14,7 @@ class App(ctk.CTk):
         self.resizable(False, False)
         self.configure(fg_color="#0d1117")
         self.pool = InfiniteProxyPool(on_update=self._on_pool)
-        self.server = ForwardProxyServer(host="127.0.0.1", port=8080, proxy_manager=self)
+        self.server = ForwardProxyServer(host="127.0.0.1", port=8080, proxy_manager=self, transparent=True)
         self.active = False
         self._build()
         self._loop()
@@ -50,6 +50,14 @@ class App(ctk.CTk):
             height=38, corner_radius=10, fg_color="#21262d", hover_color="#30363d",
             border_width=1, border_color="#30363d", state="disabled", command=self._rotate)
         self.rot_btn.pack(pady=(0, 4), padx=20, fill="x")
+
+        self.trans_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.trans_frame.pack(pady=(0, 2), padx=20, fill="x")
+        self.trans_var = ctk.BooleanVar(value=True)
+        self.trans_switch = ctk.CTkSwitch(self.trans_frame, text="Mode transparent (Internet direct si proxy KO)",
+            variable=self.trans_var, command=self._toggle_transparent,
+            fg_color="#30363d", progress_color="#58a6ff")
+        self.trans_switch.pack(side="left")
 
         self.auto_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.auto_frame.pack(pady=(2, 6), padx=20, fill="x")
@@ -105,6 +113,10 @@ class App(ctk.CTk):
     def _toggle_auto(self):
         if self.auto_var.get():
             self._auto_rotate()
+
+    def _toggle_transparent(self):
+        self.server.transparent = self.trans_var.get()
+        self.bottom.configure(text=f"Mode transparent : {'ON' if self.trans_var.get() else 'OFF'} (fallback si aucun proxy)")
 
     def _auto_rotate(self):
         if not self.active or not self.auto_var.get(): return
