@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 320px; min-height: 360px;
+    background: linear-gradient(180deg, #0d1117 0%, #161b22 100%);
+    color: #c9d1d9;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+    overflow: hidden;
+  }
+  .header { background: linear-gradient(90deg, #002395 0%, #ffffff 50%, #ed2939 100%); height: 3px; }
+  .content { padding: 20px 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .brand h1 { font-size: 16px; font-weight: 700; color: #e6edf3; letter-spacing: -0.3px; }
+  .flag { font-size: 14px; }
+  .tagline { font-size: 10px; color: #8b949e; margin-bottom: 16px; }
+  .card {
+    background: #161b22; border: 1px solid #30363d; border-radius: 14px;
+    padding: 18px 16px; margin-bottom: 12px; text-align: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    transition: border-color 0.3s ease;
+  }
+  .card.active { border-color: #238636; }
+  .card.inactive { border-color: #30363d; }
+  .status-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    margin-right: 4px; vertical-align: middle; position: relative; top: -1px;
+  }
+  .status-dot.on { background: #3fb950; box-shadow: 0 0 6px #3fb950; }
+  .status-dot.off { background: #f85149; box-shadow: 0 0 6px #f85149; }
+  .status-text { font-size: 12px; font-weight: 600; letter-spacing: 0.3px; }
+  .status-text.on { color: #3fb950; } .status-text.off { color: #f85149; }
+  .ip-display {
+    font-size: 21px; font-weight: 700; margin: 10px 0 2px;
+    letter-spacing: 0.5px; transition: color 0.3s ease;
+    font-family: 'SF Mono', 'Consolas', 'Courier New', monospace;
+  }
+  .ip-display.on { color: #58a6ff; } .ip-display.off { color: #484f58; }
+  .location { font-size: 10px; color: #8b949e; text-transform: uppercase; letter-spacing: 1px; }
+  .btn {
+    width: 100%; height: 44px; border-radius: 10px; border: none;
+    font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 7px;
+    letter-spacing: 0.2px; transition: all 0.2s ease;
+  }
+  .btn:disabled { opacity: 0.5; cursor: default; pointer-events: none; }
+  .btn-primary { background: #238636; color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: #2ea043; transform: translateY(-1px); }
+  .btn-danger { background: #da3633; color: #fff; }
+  .btn-danger:hover:not(:disabled) { background: #f85149; transform: translateY(-1px); }
+  .btn-secondary {
+    background: #21262d; color: #c9d1d9; border: 1px solid #30363d; height: 38px; font-size: 12px;
+  }
+  .btn-secondary:hover:not(:disabled) { background: #30363d; }
+  .footer { font-size: 9px; color: #484f58; text-align: center; padding: 4px 20px 14px; line-height: 1.5; }
+  .spinner {
+    display: inline-block; width: 14px; height: 14px; border: 2px solid #30363d;
+    border-top-color: #58a6ff; border-radius: 50%; animation: spin 0.8s linear infinite;
+    vertical-align: middle; margin-right: 4px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hidden { display: none !important; }
+  ::selection { background: #58a6ff40; }
+</style>
+</head>
+<body>
+
+<div class="header"></div>
+
+<div class="content">
+  <div class="brand">
+    <span class="flag">🇫🇷</span>
+    <h1>IP Masker FR</h1>
+  </div>
+  <div class="tagline">Proxy FR testé en direct · Scraping live · IP fraîche à chaque clic</div>
+
+  <div class="card inactive" id="card">
+    <span class="status-dot off" id="dot"></span>
+    <span class="status-text off" id="status">Inactif</span>
+    <div class="ip-display off" id="ip">—</div>
+    <div class="location" id="loc">Prêt</div>
+  </div>
+
+  <button class="btn btn-primary" id="toggle">Activer le masquage</button>
+  <button class="btn btn-secondary hidden" id="rotate" disabled>
+    🔄 Nouvelle IP française
+  </button>
+</div>
+
+<div class="footer" id="footer">
+  Chaque IP est vérifiée via le proxy avant activation<br>
+  ⚠️ Trafic Firefox uniquement
+</div>
+
+<script src="popup.js"></script>
+</body>
+</html>
