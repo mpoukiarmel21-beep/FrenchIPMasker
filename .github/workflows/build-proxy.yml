@@ -1,8 +1,13 @@
-name: Build FrenchIPMasker .exe
+name: Build FrenchIPMasker - Proxy Local
 
 on:
   push:
     branches: [main, master]
+    paths:
+      - 'proxy_version/**'
+      - 'proxy_scraper.py'
+      - 'proxy_server.py'
+      - '.github/workflows/build-proxy.yml'
   workflow_dispatch:
 
 permissions:
@@ -11,7 +16,6 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -21,31 +25,29 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install customtkinter requests Pillow pyinstaller
 
       - name: Build executable
         run: |
-          pyinstaller --onefile --windowed --name FrenchIPMasker `
-            --add-data "tor_manager.py;." `
+          pyinstaller --onefile --windowed --name FrenchIPMasker-Proxy `
             --add-data "proxy_scraper.py;." `
-            --add-data "network.py;." `
+            --add-data "proxy_server.py;." `
             --hidden-import customtkinter `
             --hidden-import requests `
-            --hidden-import stem `
             --hidden-import PIL `
             --clean `
-            main.py
+            proxy_version/main.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FrenchIPMasker
-          path: dist/FrenchIPMasker.exe
+          name: FrenchIPMasker-Proxy
+          path: dist/FrenchIPMasker-Proxy.exe
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.0
-          files: dist/FrenchIPMasker.exe
+          files: dist/FrenchIPMasker-Proxy.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

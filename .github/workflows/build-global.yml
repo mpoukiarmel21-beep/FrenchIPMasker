@@ -1,0 +1,53 @@
+name: Build FrenchIPMasker - Global
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'global_version/**'
+      - 'proxy_scraper.py'
+      - '.github/workflows/build-global.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install customtkinter requests Pillow pyinstaller
+
+      - name: Build executable
+        run: |
+          pyinstaller --onefile --windowed --name FrenchIPMasker-Global `
+            --add-data "proxy_scraper.py;." `
+            --hidden-import customtkinter `
+            --hidden-import requests `
+            --hidden-import PIL `
+            --hidden-import winreg `
+            --hidden-import ctypes `
+            --clean `
+            global_version/main.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrenchIPMasker-Global
+          path: dist/FrenchIPMasker-Global.exe
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0
+          files: dist/FrenchIPMasker-Global.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

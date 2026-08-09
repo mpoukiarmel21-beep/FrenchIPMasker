@@ -1,72 +1,124 @@
-# Proxy Scraper - Fetch and test free French HTTP/SOCKS5 proxies
+# Shared Proxy Manager - Fetch, test, and rotate free French proxies
 import requests
-import time
 import threading
+import time
+import random
 
 PROXY_SOURCES = [
     "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt",
     "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt",
     "https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt",
     "https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies.txt",
+    "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt",
+    "https://raw.githubusercontent.com/mmpx12/proxy-list/master/http.txt",
+    "https://www.proxy-list.download/api/v1/get?type=http",
+    "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=5000&country=FR&ssl=all&anonymity=all",
+    "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks5&timeout=5000&country=FR&ssl=all&anonymity=all",
 ]
 
-class ProxyScraper:
-    def __init__(self):
-        self.french_proxies = []
-        self.working_proxy = None
-        self._lock = threading.Lock()
+GEO_CHECK_URL = "http://ip-api.com/json/{ip}?fields=countryCode,country,city,isp"
+IP_CHECK_URL = "http://ip-api.com/json/?fields=countryCode,ip"
 
-    def fetch_proxies(self):
-        """Fetch proxies from multiple sources"""
-        proxies = set()
+class ProxyManager:
+    def __init__(self):
+        self.proxies = []
+        self.working_proxies = []
+        self.current_proxy = None
+        self._lock = threading.Lock()
+        self._refresh_thread = None
+
+    def fetch_all(self):
+        """Fetch proxies from all sources"""
+        all_proxies = set()
         for url in PROXY_SOURCES:
             try:
-                resp = requests.get(url, timeout=10)
-                for line in resp.text.split("\n"):
+                resp = requests.get(url, timeout=15)
+                for line in resp.text.splitlines():
                     line = line.strip()
-                    if ":" in line and len(line) < 30:
-                        proxies.add(line)
+                    if ":" in line and len(line) < 30 and not line.startswith("#"):
+                        all_proxies.add(line)
             except:
                 pass
-        print(f"[Proxy] Fetched {len(proxies)} proxies")
-        return list(proxies)
 
-    def test_proxy(self, proxy, timeout=5):
-        """Test if a proxy works and is French"""
+        with self._lock:
+            self.proxies = list(all_proxies)
+
+        print(f"[Proxy] Fetched {len(self.proxies)} proxies")
+        return self.proxies
+
+    def test_one(self, proxy, timeout=6):
+        """Test if a proxy works and check its country"""
         try:
             proxies = {"http": f"http://{proxy}", "https": f"http://{proxy}"}
-            # Test with ip-api.com
-            resp = requests.get("http://ip-api.com/json/?fields=countryCode,ip",
-                              proxies=proxies, timeout=timeout)
+            resp = requests.get(IP_CHECK_URL, proxies=proxies, timeout=timeout)
             data = resp.json()
-            if data.get("countryCode") == "FR":
-                return True, data.get("ip", proxy)
-            return False, None
+            country = data.get("countryCode", "")
+            ip = data.get("ip", proxy)
+            return country == "FR", ip, country
         except:
-            return False, None
+            return False, proxy, "?"
 
-    def find_french_proxy(self):
-        """Find a working French proxy"""
-        proxies = self.fetch_proxies()
+    def test_french(self, max_test=80):
+        """Test proxies and collect working French ones"""
+        working = []
+        proxies = self.proxies[:max_test] if len(self.proxies) > max_test else self.proxies
+
         for proxy in proxies:
-            ok, ip = self.test_proxy(proxy)
+            ok, ip, country = self.test_one(proxy, timeout=5)
+            if ok:
+                working.append({"proxy": proxy, "ip": ip, "country": country})
+                print(f"[Proxy] FR: {proxy} -> {ip}")
+
+        with self._lock:
+            self.working_proxies = working
+
+        print(f"[Proxy] Found {len(working)} French proxies")
+        return working
+
+    def get_best(self):
+        """Get the best working French proxy"""
+        if self.working_proxies:
+            p = random.choice(self.working_proxies)
+            ok, _, _ = self.test_one(p["proxy"], timeout=3)
             if ok:
                 with self._lock:
-                    self.working_proxy = proxy
-                    self.french_proxies.append(proxy)
-                print(f"[Proxy] Found French proxy: {proxy}")
-                return proxy
+                    self.current_proxy = p
+                return p["proxy"]
+
+        # Try to find one
+        for _ in range(5):
+            if self.proxies:
+                proxy = random.choice(self.proxies)
+                ok, ip, country = self.test_one(proxy, timeout=4)
+                if ok:
+                    p = {"proxy": proxy, "ip": ip, "country": country}
+                    with self._lock:
+                        self.working_proxies.append(p)
+                        self.current_proxy = p
+                    return proxy
+
         return None
 
-    def get_working_french_proxy(self):
-        """Get a working French proxy, fetching if needed"""
-        if self.working_proxy:
-            ok, _ = self.test_proxy(self.working_proxy, timeout=3)
-            if ok:
-                return self.working_proxy
-        return self.find_french_proxy()
+    def refresh_background(self):
+        """Refresh proxy list in background thread"""
+        def task():
+            self.fetch_all()
+            self.test_french(max_test=50)
 
-    def refresh_async(self):
-        """Refresh proxy list in background"""
-        t = threading.Thread(target=self.find_french_proxy, daemon=True)
+        t = threading.Thread(target=task, daemon=True)
         t.start()
+
+    def get_current_ip(self):
+        """Get the IP of the current proxy"""
+        if self.current_proxy:
+            return self.current_proxy.get("ip", "...")
+        return "..."
+
+    def get_status(self):
+        """Get current status info"""
+        return {
+            "total": len(self.proxies),
+            "working_french": len(self.working_proxies),
+            "current_ip": self.get_current_ip(),
+            "current_proxy": self.current_proxy["proxy"] if self.current_proxy else None
+        }
