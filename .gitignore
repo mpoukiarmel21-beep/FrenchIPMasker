@@ -1,0 +1,11 @@
+*.pyc
+__pycache__/
+dist/
+build/
+*.spec
+*.exe
+*.zip
+tor_bundle/
+*.egg-info/
+.vscode/
+.idea/

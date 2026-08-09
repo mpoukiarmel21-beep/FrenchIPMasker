@@ -1,0 +1,5 @@
+customtkinter>=5.2
+requests>=2.31
+Pillow>=10.0
+stem>=1.8
+pyinstaller>=6.0
